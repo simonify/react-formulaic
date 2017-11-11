@@ -1,0 +1,69 @@
+{
+  "name": "react-formulaic",
+  "version": "0.0.1",
+  "description": "A set of React components for easy form management ⚛️",
+  "main": "index.js",
+  "author": "Simon Fletcher <simon@wakecodesleep.com>",
+  "scripts": {
+    "build": "npm run clean && npm run build:cjs && npm run build:esm -- --optimize ",
+    "build:cjs": "BABEL_ENV=cjs babel src/ -d lib/",
+    "build:esm": "BABEL_ENV=esm babel src/ -d esm/",
+    "build-storybook": "build-storybook",
+    "clean": "rimraf lib esm",
+    "gh-pages:clean": "rimraf _gh-pages",
+    "gh-pages:build": "$(npm bin)/build-storybook -o _gh-pages",
+    "gh-pages:publish": "$(npm bin)/git-directory-deploy --directory _gh-pages",
+    "gh-pages": "npm run gh-pages:clean && npm run gh-pages:build && npm run gh-pages:publish",
+    "prepublish": "in-publish && safe-publish-latest && npm run build || not-in-publish",
+    "postpublish": "npm run gh-pages",
+    "storybook": "start-storybook -p 6006"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simonify/react-formulaic.git"
+  },
+  "keywords": [
+    "react",
+    "form",
+    "redux",
+    "hoc",
+    "higher-order",
+    "component",
+    "es6"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "create-dispatcher": "^1.4.0",
+    "hoist-non-react-statics": "^2.3.1",
+    "prop-types": "^15.6.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-actions": "^3.2.15",
+    "@storybook/addon-links": "^3.2.15",
+    "@storybook/react": "^3.2.15",
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^7.2.3",
+    "babel-plugin-dev-expression": "^0.2.1",
+    "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-plugin-transform-export-extensions": "^6.22.0",
+    "babel-preset-airbnb": "^2.4.0",
+    "eslint": "^4.10.0",
+    "eslint-config-airbnb": "^16.1.0",
+    "eslint-plugin-import": "^2.8.0",
+    "eslint-plugin-jsx-a11y": "^6.0.2",
+    "eslint-plugin-react": "^7.4.0",
+    "faker": "^4.1.0",
+    "git-directory-deploy": "^1.5.1",
+    "in-publish": "^2.0.0",
+    "react": "^16.1.0",
+    "react-dom": "^16.0.0",
+    "react-redux": "^5.0.6",
+    "redux-thunk": "^2.2.0",
+    "safe-publish-latest": "^1.1.1",
+    "warning": "^3.0.0"
+  },
+  "peerDependencies": {
+    "react": "~15.4.2 || ~15.5.0 || ~15.6.0 || ~16.0.0",
+    "react-dom": "~15.4.2 || ~15.5.0 || ~15.6.0 || ~16.0.0"
+  }
+}
