@@ -1,13 +1,21 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { CancelButton, CommitButton, Field, Form } from '../../src';
+import { CancelButton, CommitButton, Field, FormState } from '../../src';
 
 export default class ExampleForm extends Component {
   static propTypes = {
+    component: PropTypes.func.isRequired,
     initialValues: PropTypes.object.isRequired,
-    setIsCommitting: PropTypes.func.isRequired,
     storeState: PropTypes.object.isRequired,
-    updateFormFields: PropTypes.func.isRequired,
+    setIsCommitting: PropTypes.func,
+    updateFormFields: PropTypes.func,
+    id: PropTypes.string,
+  };
+
+  static defaultProps = {
+    id: null,
+    setIsCommitting: null,
+    updateFormFields: null,
   };
 
   onChangeState = (prevState, state) => {
@@ -17,23 +25,31 @@ export default class ExampleForm extends Component {
     }
   };
 
-  onCommit = changes => new Promise(resolve => (
+  onCommit = changes => new Promise((resolve, reject) => (
     // fake network delay
     setTimeout(() => {
-      resolve();
-      this.props.updateFormFields(changes);
+      if (changes.name.toLowerCase() === 'trump') {
+        reject(new Error('Name banned.'));
+      } else {
+        resolve();
+      }
+
+      if (this.props.updateFormFields) {
+        this.props.updateFormFields(changes);
+      }
     }, 2500)
   ));
 
   render() {
-    const { initialValues, storeState } = this.props;
+    const { component: FormComponent, id, initialValues, storeState } = this.props;
 
     return (
       <div>
-        <Form
+        <FormComponent
+          id={id}
           initialValues={initialValues}
           onCommit={this.onCommit}
-          // onChangeState={this.onChangeState}
+          onChangeState={this.props.setIsCommitting ? this.onChangeState : undefined}
           style={{
             borderRadius: 8,
             marginBottom: 20,
@@ -43,7 +59,7 @@ export default class ExampleForm extends Component {
           preventChangeWhenCommitting
           overwriteWhenInitialValuesChange
         >
-          <div>Name:</div>
+          <div>Name (enter "trump" to simulate error):</div>
           <Field field="name" />{' '}
           <CommitButton>
             {({ isCommitting }) => (isCommitting ? 'Saving...' : 'Save changes')}
@@ -51,7 +67,22 @@ export default class ExampleForm extends Component {
           <CancelButton>
             Cancel
           </CancelButton>
-        </Form>
+          <FormState>
+            {({ commitError }) => (commitError ? (
+              <div
+                style={{
+                  marginTop: 15,
+                  padding: '8px 14px',
+                  background: '#ffefef',
+                  borderRadius: 8,
+                  boxShadow: '0 3px 8px #ffefef',
+                }}
+              >
+                {commitError.message}
+              </div>
+            ) : null)}
+          </FormState>
+        </FormComponent>
         <div style={{ marginTop: 25 }}>
           <strong>Redux store state:</strong>
           <pre style={{ padding: 12, borderRadius: 8 }}>

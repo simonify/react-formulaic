@@ -25,9 +25,9 @@ export default class FormProvider extends Component {
     };
   }
 
-  componentDidMount() {
+  componentWillMount() {
     this.unsubscribe = this.context.forms.subscribe(
-      this.forceUpdate.bind(this),
+      () => this.forceUpdate(),
     );
   }
 

@@ -2,12 +2,12 @@ import React, { cloneElement } from 'react';
 import PropTypes from 'prop-types';
 import {
   CommitButton,
-  CommitStatus,
   CancelButton,
   DirtyField,
-  Form,
   Field,
   FieldErrors,
+  FormState,
+  StatefulForm,
 } from '../../src';
 import { formStyle, inputStyle, rowStyle } from './shared';
 import Button from './button';
@@ -54,7 +54,7 @@ Row.propTypes = {
 
 export default function Profile(props) {
   return (
-    <Form {...profileFormConfig(props)} style={formStyle}>
+    <StatefulForm {...profileFormConfig(props)} style={formStyle}>
       <h1>Edit Profile</h1>
       <Row label="Name" field="name">
         <Field type={WrappedField} />
@@ -94,10 +94,10 @@ export default function Profile(props) {
           Cancel
         </CancelButton>
       </div>
-      <CommitStatus>
-        {({ isCommitting }) => isCommitting && <Committing />}
-      </CommitStatus>
-    </Form>
+      <FormState>
+        {({ isCommitting }) => (isCommitting ? <Committing /> : null)}
+      </FormState>
+    </StatefulForm>
   );
 }
 

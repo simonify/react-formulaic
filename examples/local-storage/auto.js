@@ -1,5 +1,5 @@
 import React from 'react';
-import { Field, Form } from '../../src';
+import { Field, StatefulForm } from '../../src';
 import * as styles from './styles';
 
 const onCommit = ({ message }) => {
@@ -8,7 +8,7 @@ const onCommit = ({ message }) => {
 
 export default function LocalStorageForm() {
   return (
-    <Form
+    <StatefulForm
       initialValues={{
         message: window.localStorage.getItem('message') || '',
       }}
@@ -25,6 +25,6 @@ export default function LocalStorageForm() {
         This implementation uses the <code>commitOnChange</code> flag to{' '}
         automatically commit changes made to the field.
       </div>
-    </Form>
+    </StatefulForm>
   );
 }

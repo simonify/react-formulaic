@@ -41,7 +41,7 @@ export default props => ({
   },
 
   getNormalizedValueForKey: {
-    age: (value, prevValue) => (/^[0-9]+$/.test(value) ? value : prevValue),
+    age: (value, prevValue) => (/^[0-9]*$/.test(value) ? value : prevValue),
   },
 
   onCommit: () => new Promise(resolve => setTimeout(resolve, 1000)),

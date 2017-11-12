@@ -54,6 +54,7 @@ export const getInvalidFields = (schema, values, previousValues) => (
 );
 
 export const formPropTypes = {
+  onCommit: PropTypes.func.isRequired,
   getNormalizedValueForKey: PropTypes.oneOfType([
     PropTypes.func,
     PropTypes.object,
@@ -66,7 +67,7 @@ export const formDefaultProps = {
   schema: {},
 };
 
-export default class Form extends Component {
+export default class BaseForm extends Component {
   static contextTypes = {
     forms: PropTypes.object,
   };
@@ -145,6 +146,18 @@ export default class Form extends Component {
     forms: this.forms,
   });
 
+  componentWillReceiveProps(props) {
+    if (this.props.id !== props.id) {
+      const {
+        id = ++FORM_ID,
+      } = props;
+
+      this.forms.set(id, this.getState);
+      this.forms.delete(this.props.id);
+      this.id = id;
+    }
+  }
+
   componentDidUpdate() {
     this.dispatcher.dispatch();
   }
@@ -174,62 +187,55 @@ export default class Form extends Component {
     this.props.onCommit();
   };
 
-  onChangeField = (key, baseValue, { skipValidation = false } = {}) => (
-    new Promise((resolve, reject) => {
-      if (this.unmounted) {
-        return;
+  onChangeField = (key, baseValue, { skipValidation = false } = {}) => {
+    const {
+      commitOnChange,
+      preventChangeWhenInvalid,
+      readOnly,
+      schema,
+    } = this.props;
+
+    if (readOnly) {
+      return Promise.reject(new Error('form is read only'));
+    }
+
+    const prevValue = this.props.values[key];
+    const value = getNormalizedValueForKey(
+      key,
+      baseValue,
+      prevValue,
+      this.props.getNormalizedValueForKey,
+    );
+
+    const isInvalid = (
+      !skipValidation &&
+      schema[key] &&
+      !schema[key](value, prevValue)
+    );
+
+    if (preventChangeWhenInvalid && isInvalid) {
+      return Promise.reject(new Error('fields are invalid'));
+    }
+
+    const res = this.props.onChangeField(key, value, prevValue);
+
+    if (commitOnChange) {
+      if (res != null && typeof res.then === 'function') {
+        res.then(this.onCommit);
+      } else {
+        this.onCommit();
       }
+    }
 
-      const {
-        commitOnChange,
-        preventChangeWhenInvalid,
-        readOnly,
-        schema,
-      } = this.props;
-
-      if (readOnly) {
-        reject(new Error('form is read only'));
-        return;
-      }
-
-      const prevValue = this.props.values[key];
-      const value = getNormalizedValueForKey(
-        key,
-        baseValue,
-        prevValue,
-        this.props.getNormalizedValueForKey,
-      );
-
-      const isInvalid = (
-        !skipValidation &&
-        schema[key] &&
-        !schema[key](value, prevValue)
-      );
-
-      if (preventChangeWhenInvalid && isInvalid) {
-        reject(new Error('fields are invalid'));
-        return;
-      }
-
-      const res = this.props.onChangeField(key, value, prevValue);
-
-      if (commitOnChange) {
-        if (res != null && typeof res.then === 'function') {
-          res.then(this.onCommit);
-        } else {
-          this.onCommit();
-        }
-      }
-
-      resolve(res);
-    })
-  );
+    return Promise.resolve(res);
+  };
 
   getValueForKey = key => this.props.values[key];
 
   getState = () => ({
     cancel: this.onCancel,
     commit: this.onCommit,
+    commitError: this.props.commitError,
     dirtyFields: this.props.dirtyFields,
     getValueForKey: this.getValueForKey,
     id: this.id,

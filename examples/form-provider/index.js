@@ -1,5 +1,5 @@
 import React from 'react';
-import { Field, Form, FormsContext, FormProvider } from '../../src';
+import { Field, FormsContext, FormProvider, StatefulForm } from '../../src';
 import * as styles from './styles';
 
 const onCommit = () => {};
@@ -34,7 +34,7 @@ export default function FormProviderExample() {
             </div>
           </div>
         </FormProvider>
-        <Form
+        <StatefulForm
           id="example"
           initialValues={{
             message: 'hello world',
@@ -49,7 +49,7 @@ export default function FormProviderExample() {
           <div>
             <Field field="message" style={styles.textarea} type="textarea" />
           </div>
-        </Form>
+        </StatefulForm>
       </div>
     </FormsContext>
   );

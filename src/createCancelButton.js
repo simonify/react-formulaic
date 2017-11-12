@@ -4,12 +4,12 @@ import PropTypes from 'prop-types';
 export default function createCancelButton(getFormState) {
   function onClick(event) {
     event.preventDefault();
-    getFormState().onCancel();
+    getFormState().cancel();
   }
 
   function CancelButton({ component: Component, children, ...props }) {
     const formState = getFormState();
-    const disabled = (!formState.isDirty && !formState.isInvalid) || formState.isCommitting;
+    const disabled = !formState.isDirty || formState.isCommitting;
 
     if (Component === 'button') {
       return (

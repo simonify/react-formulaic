@@ -18,25 +18,13 @@ string.len = {
   lt: max => value => string(value) && value.length < max,
 };
 
-export const first = (...rules) => (value) => {
-  const firstFailure = rules.reduce((failure, rule) => {
-    if (failure !== true) {
-      return failure;
-    }
-
-    return rule(value);
-  }, false);
-
-  if (firstFailure === true) {
-    return false;
+export const first = (...rules) => value => rules.reduce((failure, rule) => {
+  if (failure !== true) {
+    return failure;
   }
 
-  if (firstFailure === false) {
-    return true;
-  }
-
-  return firstFailure;
-};
+  return rule(value);
+}, true);
 
 export const all = (...rules) => (value) => {
   let failures = rules.map(rule => rule(value)).filter(validate => validate !== true);

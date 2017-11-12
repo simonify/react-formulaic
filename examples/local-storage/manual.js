@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Field, Form } from '../../src';
+import { Field, StatefulForm } from '../../src';
 import * as styles from './styles';
 
 const onCommit = ({ message }) => {
@@ -41,7 +41,7 @@ LocalStorageForm.propTypes = {
 };
 
 export default () => (
-  <Form
+  <StatefulForm
     component={LocalStorageForm}
     initialValues={{
       message: window.localStorage.getItem('message') || '',

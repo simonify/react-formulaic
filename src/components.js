@@ -7,8 +7,8 @@ import createCommitButton from './createCommitButton';
 
 export FormsContext from './FormsContext';
 export FormProvider from './FormProvider';
-// export Form from './Form';
-export { default as Form } from './StatefulForm';
+export BaseForm from './BaseForm';
+export StatefulForm from './StatefulForm';
 
 function createConnected(name, createComponent) {
   class ConnectedComponent extends PureComponent {
@@ -45,8 +45,8 @@ export const Field = createConnected('Field', createField);
 export const FieldErrors = createConnected('FieldErrors', createFieldErrors);
 export const CancelButton = createConnected('CancelButton', createCancelButton);
 export const CommitButton = createConnected('CommitButton', createCommitButton);
-export const CommitStatus = createConnected(
-  'CommitStatus', getFormState => ({ children }) => children(getFormState()),
+export const FormState = createConnected(
+  'FormState', getFormState => ({ children }) => children(getFormState()),
 );
 
 export const DirtyField = createConnected(

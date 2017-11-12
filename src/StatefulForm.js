@@ -1,24 +1,22 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { UNKNOWN_COMMIT_ERROR } from './constants';
-import Form, {
-  getInvalidFields,
-  formPropTypes,
-  formDefaultProps,
-} from './Form';
+import BaseForm, { getInvalidFields, formPropTypes, formDefaultProps } from './BaseForm';
 
 export default class StatefulForm extends Component {
   static propTypes = {
     ...formPropTypes,
+    onCommit: PropTypes.func.isRequired,
     initialValues: PropTypes.object,
     normalizeInitialValues: PropTypes.func,
-    onCommit: PropTypes.func.isRequired,
+    onChangeState: PropTypes.func,
     overwriteWhenInitialValuesChange: PropTypes.bool,
   };
 
   static defaultProps = {
     ...formDefaultProps,
     initialValues: {},
+    onChangeState: null,
     overwriteWhenInitialValuesChange: false,
   };
 
@@ -84,6 +82,12 @@ export default class StatefulForm extends Component {
       invalidFields,
       values,
     });
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.state !== prevState && this.props.onChangeState) {
+      this.props.onChangeState(prevState, this.state);
+    }
   }
 
   onChangeField = (key, value) => (
@@ -212,7 +216,7 @@ export default class StatefulForm extends Component {
     } = this.props;
 
     return (
-      <Form
+      <BaseForm
         {...props}
         commitError={commitError}
         dirtyFields={dirtyFields}

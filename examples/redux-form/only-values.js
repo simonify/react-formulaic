@@ -2,8 +2,10 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Provider, connect } from 'react-redux';
 import { name } from 'faker';
-import createStore from './createStore';
+import { StatefulForm } from '../../src';
 import ExampleForm from './form';
+import createStore from './createStore';
+import reducer from './reducer';
 import * as actions from './actions';
 
 const ExampleFormContainer = connect(state => ({
@@ -11,14 +13,14 @@ const ExampleFormContainer = connect(state => ({
   storeState: state,
 }), actions)(ExampleForm);
 
-export default class ReduxForm extends Component {
+export default class ReduxFormOnlyValues extends Component {
   static propTypes = {
     onDispatch: PropTypes.func.isRequired,
   };
 
   constructor(props) {
     super(props);
-    this.store = createStore();
+    this.store = createStore(reducer);
 
     const { dispatch } = this.store;
 
@@ -36,7 +38,9 @@ export default class ReduxForm extends Component {
     return (
       <Provider store={this.store}>
         <div style={{ padding: 25 }}>
-          <ExampleFormContainer />
+          <ExampleFormContainer
+            component={StatefulForm}
+          />
           <div style={{ marginTop: 25 }}>
             <button
               onClick={this.updateName}
