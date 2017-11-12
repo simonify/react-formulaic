@@ -1,29 +1,30 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-export default function createField(formInstance) {
+export default function createField(getFormState) {
   function Field({
     type: FieldType,
     disabled: baseDisabled,
     field,
     ...props
   }) {
+    const formState = getFormState();
     const disabled = baseDisabled == null
-      ? formInstance.state.isCommitting && formInstance.state.preventChangeDuringCommit
+      ? formState.isCommitting && formState.preventChangeWhenCommitting
       : baseDisabled;
 
     const spreadProps = typeof FieldType === 'function' ? ({
-      isCommitting: formInstance.state.isCommitting,
-      isDirty: formInstance.state.dirtyFields[field] || false,
-      isInvalid: !!formInstance.state.invalidFields[field],
+      isCommitting: formState.isCommitting,
+      isDirty: formState.dirtyFields[field] || false,
+      isInvalid: !!formState.invalidFields[field],
     }) : undefined;
 
     return (
       <FieldType
         key={field}
         disabled={disabled}
-        onChange={event => formInstance.setValue(field, event.target.value)}
-        value={formInstance.getValueForKey(field) || ''}
+        onChange={event => formState.setValue(field, event.target.value)}
+        value={formState.getValueForKey(field) || ''}
         {...props}
         {...spreadProps}
       />

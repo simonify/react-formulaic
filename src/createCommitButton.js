@@ -1,25 +1,30 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-export default function createCommitButton(formInstance) {
+export default function createCommitButton(getFormState) {
   function CommitButton({ component: Component, children, ...props }) {
-    const api = {
-      isCommitting: formInstance.state.isCommitting,
-      isDirty: formInstance.state.isDirty,
-      isInvalid: formInstance.state.isInvalid,
-      commit: formInstance.commit,
-    };
+    const formState = getFormState();
+    const disabled = (
+      formState.isCommitting ||
+      formState.isInvalid ||
+      !formState.isDirty
+    );
 
     if (Component === 'button') {
       return (
-        <button {...props} disabled={api.isCommitting || !api.isDirty || api.isInvalid} type="submit">
-          {typeof children === 'function' ? children(api) : children}
+        <button {...props} disabled={disabled} type="submit">
+          {typeof children === 'function' ? children({ ...formState, disabled }) : children}
         </button>
       );
     }
 
+    const spreadProps = typeof Component === 'function' ? ({
+      commit: formState.commit,
+      disabled,
+    }) : undefined;
+
     return (
-      <Component {...props} {...api}>
+      <Component {...props} {...spreadProps}>
         {children}
       </Component>
     );

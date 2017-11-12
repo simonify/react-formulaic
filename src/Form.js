@@ -1,9 +1,70 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import createDispatcher from 'create-dispatcher';
-import { UNKNOWN_COMMIT_ERROR, UNKNOWN_VALIDATION_FAILURE } from './constants';
+import createFormsContext from './createFormsContext';
+import { UNKNOWN_VALIDATION_FAILURE } from './constants';
 
 let FORM_ID = 0;
+
+export function getNormalizedValueForKey(
+  key,
+  value,
+  prevValue,
+  functionOrObject,
+) {
+  if (functionOrObject != null) {
+    if (typeof functionOrObject === 'function') {
+      return functionOrObject(key, value, prevValue);
+    }
+
+    if (typeof functionOrObject[key] === 'function') {
+      return functionOrObject[key](value, prevValue);
+    }
+
+    return value;
+  }
+
+  return value;
+}
+
+export const getInvalidFields = (schema, values, previousValues) => (
+  Object.entries(schema).reduce((invalidFields, [schemaKey, validator]) => {
+    const res = validator(values[schemaKey], previousValues[schemaKey]);
+
+    if (res === true) {
+      return invalidFields;
+    }
+
+    if (!invalidFields[schemaKey]) {
+      invalidFields[schemaKey] = []; // eslint-disable-line
+    }
+
+    if (res === false) {
+      if (!invalidFields[schemaKey].length) {
+        invalidFields[schemaKey].push(UNKNOWN_VALIDATION_FAILURE);
+      }
+    } else if (Array.isArray(res)) {
+      invalidFields[schemaKey] = invalidFields[schemaKey].concat(res); // eslint-disable-line
+    } else {
+      invalidFields[schemaKey].push(res);
+    }
+
+    return invalidFields;
+  }, {})
+);
+
+export const formPropTypes = {
+  getNormalizedValueForKey: PropTypes.oneOfType([
+    PropTypes.func,
+    PropTypes.object,
+  ]),
+  normalizeInitialValues: PropTypes.func,
+};
+
+export const formDefaultProps = {
+  normalizeInitialValues: n => n,
+  schema: {},
+};
 
 export default class Form extends Component {
   static contextTypes = {
@@ -11,43 +72,60 @@ export default class Form extends Component {
   };
 
   static childContextTypes = {
-    form: PropTypes.object.isRequired,
+    form: PropTypes.func.isRequired,
     forms: PropTypes.object.isRequired,
   };
 
   static propTypes = {
-    commit: PropTypes.func.isRequired,
+    onCancel: PropTypes.func.isRequired,
+    onChangeField: PropTypes.func.isRequired,
+    onCommit: PropTypes.func.isRequired,
+    schema: PropTypes.object.isRequired,
+    commitError: PropTypes.any,
     commitOnChange: PropTypes.bool,
     component: PropTypes.oneOfType([
       PropTypes.func,
       PropTypes.string,
     ]),
-    id: PropTypes.string,
-    initialValues: PropTypes.object,
-    normalizeFieldValue: PropTypes.oneOfType([
+    dirtyFields: PropTypes.arrayOf(PropTypes.string),
+    dirtyValues: PropTypes.object,
+    getNormalizedValueForKey: PropTypes.oneOfType([
       PropTypes.func,
       PropTypes.object,
     ]),
-    normalizeInitialValues: PropTypes.func,
-    onChangeState: PropTypes.func,
-    overwriteWhenInitialValuesChange: PropTypes.bool,
+    isCommitting: PropTypes.bool,
+    isValidating: PropTypes.bool,
+    id: PropTypes.string,
+    invalidFields: PropTypes.object,
+    preventCancelWhenClean: PropTypes.bool,
+    preventChangeWhenCommitting: PropTypes.bool,
     preventChangeWhenInvalid: PropTypes.bool,
-    preventChangeDuringCommit: PropTypes.bool,
-    schema: PropTypes.object,
+    preventCommitWhenClean: PropTypes.bool,
+    preventCommitWhenCommitting: PropTypes.bool,
+    preventCommitWhenInvalid: PropTypes.bool,
+    readOnly: PropTypes.bool,
+    values: PropTypes.object,
   };
 
   static defaultProps = {
-    commitOnChange: false,
     component: 'form',
+    commitError: null,
+    commitOnChange: false,
+    dirtyFields: [],
+    dirtyValues: null,
+    getNormalizedValueForKey: (key, value) => value,
+    isCommitting: false,
+    isValidating: false,
     id: null,
-    initialValues: {},
-    normalizeFieldValue: undefined,
-    normalizeInitialValues: n => n,
-    onChangeState: null,
-    overwriteWhenInitialValuesChange: false,
+    invalidFields: {},
+    preventCancelWhenClean: false,
+    preventChangeWhenCommitting: false,
     preventChangeWhenInvalid: false,
-    preventChangeDuringCommit: true,
-    schema: {},
+    preventCommitWhenClean: false,
+    preventCommitWhenCommitting: false,
+    preventCommitWhenInvalid: false,
+    readOnly: false,
+    values: {},
   };
 
   constructor(props, context) {
@@ -55,83 +133,17 @@ export default class Form extends Component {
 
     const {
       id = ++FORM_ID,
-      initialValues,
-      preventChangeDuringCommit,
-      normalizeInitialValues,
     } = this.props;
 
-    const normalizedInitialValues = normalizeInitialValues(initialValues);
-    const invalidFields = this.getInvalidFields(
-      normalizedInitialValues,
-      normalizedInitialValues,
-    );
-
-    // We're putting some function pointers in state so everything gets
-    // provided to the WrappedComponent as the `form` prop.
     this.dispatcher = createDispatcher();
-    this.forms = (context.forms || new Map()).set(id, this);
-    this.state = {
-      id,
-      invalidFields,
-      preventChangeDuringCommit,
-      cancel: this.cancel,
-      changeId: 0,
-      commit: this.commit,
-      commitError: null,
-      dirtyFields: [],
-      initialValues: { ...normalizedInitialValues },
-      isCommitting: false,
-      isDirty: false,
-      isInvalid: Object.keys(invalidFields).length > 0,
-      setValue: this.setValue,
-      values: { ...normalizedInitialValues },
-    };
+    this.forms = (context.forms || createFormsContext()).set(id, this.getState);
+    this.id = id;
   }
 
   getChildContext = () => ({
-    form: this,
+    form: this.getState,
     forms: this.forms,
   });
-
-  componentWillReceiveProps(props) {
-    if (
-      !props.overwriteWhenInitialValuesChange ||
-      this.props.initialValues === props.initialValues
-    ) {
-      return;
-    }
-
-    const normalizedInitialValues = props.normalizeInitialValues(props.initialValues);
-    const cleanKeys = (
-      Object.keys(this.state.initialValues).filter(key => (
-        this.state.values[key] === this.props.initialValues[key]
-      ))
-    );
-
-    if (!cleanKeys.length) {
-      this.setState({ initialValues: normalizedInitialValues });
-      return;
-    }
-
-    const values = cleanKeys.reduce((state, key) => Object.assign(state, {
-      [key]: normalizedInitialValues[key],
-    }), { ...this.state.values });
-
-    const invalidFields = this.getInvalidFields(values, this.state.values);
-
-    this.setState({
-      isInvalid: Object.keys(invalidFields).length > 0,
-      initialValues: normalizedInitialValues,
-      invalidFields,
-      values,
-    });
-  }
-
-  componentWillUpdate(nextProps, nextState) {
-    if (this.props.onChangeState && this.state !== nextState) {
-      this.props.onChangeState(this.state, nextState);
-    }
-  }
 
   componentDidUpdate() {
     this.dispatcher.dispatch();
@@ -139,59 +151,30 @@ export default class Form extends Component {
 
   componentWillUnmount() {
     this.unmounted = true;
-    this.forms.delete(this.state.id);
+    this.forms.delete(this.id);
   }
+
+  onCancel = () => {
+    if (this.props.preventCancelWhenClean && !this.isDirty()) {
+      return;
+    }
+
+    this.props.onCancel();
+  }
+
+  onCommit = () => (
+    (!this.props.preventCommitWhenCommitting || !this.props.isCommitting) &&
+    (!this.props.preventCommitWhenInvalid && !this.isInvalid()) &&
+    (!this.props.preventCommitWhenClean && this.isDirty()) &&
+    this.props.onCommit()
+  );
 
   onSubmit = (event) => {
     event.preventDefault();
-    this.commit();
-  }
-
-  getValueForKey = key => this.state.values[key];
-
-  getInvalidFields = (values, previousValues) => (
-    Object.entries(this.props.schema).reduce((invalidFields, [schemaKey, validator]) => {
-      const res = validator(values[schemaKey], previousValues[schemaKey]);
-
-      if (res === true) {
-        return invalidFields;
-      }
-
-      if (!invalidFields[schemaKey]) {
-        invalidFields[schemaKey] = []; // eslint-disable-line
-      }
-
-      if (res === false) {
-        if (!invalidFields[schemaKey].length) {
-          invalidFields[schemaKey].push(UNKNOWN_VALIDATION_FAILURE);
-        }
-      } else if (Array.isArray(res)) {
-        invalidFields[schemaKey] = invalidFields[schemaKey].concat(res); // eslint-disable-line
-      } else {
-        invalidFields[schemaKey].push(res);
-      }
-
-      return invalidFields;
-    }, {})
-  );
-
-  getNormalizedValueForKey = (key, value, prevValue) => {
-    if (this.props.normalizeFieldValue != null) {
-      if (typeof this.props.normalizeFieldValue === 'function') {
-        return this.props.normalizeFieldValue(key, value, prevValue);
-      }
-
-      if (typeof this.props.normalizeFieldValue[key] === 'function') {
-        return this.props.normalizeFieldValue[key](value, prevValue);
-      }
-
-      return value;
-    }
-
-    return value;
+    this.props.onCommit();
   };
 
-  setValue = (key, baseValue, { skipValidation = false } = {}) => (
+  onChangeField = (key, baseValue, { skipValidation = false } = {}) => (
     new Promise((resolve, reject) => {
       if (this.unmounted) {
         return;
@@ -199,18 +182,24 @@ export default class Form extends Component {
 
       const {
         commitOnChange,
-        preventChangeDuringCommit,
         preventChangeWhenInvalid,
+        readOnly,
         schema,
       } = this.props;
 
-      if (preventChangeDuringCommit && this.state.isCommitting) {
-        reject(new Error('commit in progress'));
+      if (readOnly) {
+        reject(new Error('form is read only'));
         return;
       }
 
-      const prevValue = this.state.values[key];
-      const value = this.getNormalizedValueForKey(key, baseValue, prevValue);
+      const prevValue = this.props.values[key];
+      const value = getNormalizedValueForKey(
+        key,
+        baseValue,
+        prevValue,
+        this.props.getNormalizedValueForKey,
+      );
+
       const isInvalid = (
         !skipValidation &&
         schema[key] &&
@@ -222,163 +211,72 @@ export default class Form extends Component {
         return;
       }
 
-      this.setState(({
-        dirtyFields,
-        initialValues,
-        values,
-      }) => {
-        const newValues = {
-          ...values,
-          [key]: value,
-        };
+      const res = this.props.onChangeField(key, value, prevValue);
 
-        const newInvalidFields = this.getInvalidFields(newValues, values);
-
-        let newDirtyFields = dirtyFields;
-
-        if (value === initialValues[key]) {
-          newDirtyFields = dirtyFields.filter(field => field !== key);
-        } else if (!dirtyFields.includes(key)) {
-          newDirtyFields = [...dirtyFields, key];
+      if (commitOnChange) {
+        if (res != null && typeof res.then === 'function') {
+          res.then(this.onCommit);
+        } else {
+          this.onCommit();
         }
+      }
 
-        return {
-          dirtyFields: newDirtyFields,
-          isDirty: newDirtyFields.length > 0,
-          isInvalid: Object.keys(newInvalidFields).length > 0,
-          invalidFields: newInvalidFields,
-          values: newValues,
-        };
-      }, () => {
-        if (
-          commitOnChange === true ||
-          (Array.isArray(commitOnChange) && commitOnChange.includes(key)) ||
-          (
-            typeof commitOnChange === 'function' &&
-            commitOnChange(key, value, prevValue)
-          )
-        ) {
-          this.commit();
-        }
-
-        resolve();
-      });
+      resolve(res);
     })
   );
 
-  cancel = () => {
-    if (this.state.isCommitting) {
-      return;
-    }
+  getValueForKey = key => this.props.values[key];
 
-    const { initialValues } = this.state;
-    const invalidFields = this.getInvalidFields(initialValues, initialValues);
+  getState = () => ({
+    cancel: this.onCancel,
+    commit: this.onCommit,
+    dirtyFields: this.props.dirtyFields,
+    getValueForKey: this.getValueForKey,
+    id: this.id,
+    isCommitting: this.props.isCommitting,
+    isDirty: this.isDirty(),
+    isInvalid: this.isInvalid(),
+    invalidFields: this.props.invalidFields,
+    preventChangeWhenCommitting: this.props.preventChangeWhenCommitting,
+    setValue: this.onChangeField,
+    subscribe: this.dispatcher.subscribe,
+    values: this.props.values,
+  });
 
-    this.setState({
-      commitError: null,
-      values: initialValues,
-      dirtyFields: [],
-      isDirty: false,
-      isInvalid: Object.keys(invalidFields).length > 0,
-      invalidFields,
-    });
-  };
-
-  commit = ({ commitWhenNotDirty, ignoreValidation } = {}) => {
-    if (this.state.isCommitting) {
-      return;
-    }
-
-    if (this.state.isInvalid && !ignoreValidation) {
-      return;
-    }
-
-    if (commitWhenNotDirty !== false && !this.state.dirtyFields.length) {
-      return;
-    }
-
-    this.setState(({ changeId }) => ({
-      changeId: changeId + 1,
-      commitError: null,
-      isCommitting: true,
-    }), () => {
-      const { changeId, values } = this.state;
-      const commitRes = this.props.commit(values, {
-        dirtyFields: this.state.dirtyFields,
-        props: this.props,
-      });
-
-      const setIfSafe = diff => this.setState(({ changeId: currentChangeId }) => {
-        if (changeId === currentChangeId) {
-          return diff;
-        }
-
-        return undefined;
-      });
-
-      const finalize = () => !this.unmounted && setIfSafe({
-        dirtyFields: [],
-        isCommitting: false,
-        isDirty: false,
-        isInvalid: false,
-        initialValues: values,
-        invalidFields: {},
-      });
-
-      const reject = commitError => !this.unmounted && setIfSafe({
-        isCommitting: false,
-        commitError,
-      });
-
-      if (typeof commitRes === 'object') {
-        if (typeof commitRes.then === 'function') {
-          commitRes.then(finalize, reject);
-          return;
-        }
-
-        if (commitRes instanceof Error) {
-          reject(commitRes);
-          return;
-        }
-
-        console.warn('Invalid commit response:', commitRes);
-
-        reject(new Error(UNKNOWN_COMMIT_ERROR));
-
-        return;
-      }
-
-      if (commitRes === false) {
-        reject(new Error(UNKNOWN_COMMIT_ERROR));
-        return;
-      }
-
-      finalize();
-    });
-  }
+  isDirty = () => this.props.dirtyFields.length > 0;
+  isInvalid = () => Object.keys(this.props.invalidFields).length > 0;
 
   render() {
     const {
       component: ComponentType,
-      commit,
+      getNormalizedValueForKey: omit,
+      commitError,
       commitOnChange,
-      initialValues,
-      normalizeFieldValue,
-      normalizeInitialValues,
-      onChangeState,
-      overwriteWhenInitialValuesChange,
+      onCommit,
+      dirtyFields,
+      dirtyValues,
+      isCommitting,
+      isValidating,
+      invalidFields,
+      onChangeField,
+      preventCancelWhenClean,
+      preventChangeWhenCommitting,
       preventChangeWhenInvalid,
-      preventChangeDuringCommit,
+      preventCommitWhenClean,
+      preventCommitWhenCommitting,
+      preventCommitWhenInvalid,
+      readOnly,
       schema,
+      values,
       ...props
     } = this.props;
 
+    const spreadProps = typeof ComponentType === 'function'
+      ? { getFormState: this.getState }
+      : null;
+
     return (
-      <ComponentType
-        {...props}
-        form={this.state}
-        onSubmit={this.onSubmit}
-      />
+      <ComponentType {...props} {...spreadProps} onSubmit={this.onSubmit} />
     );
   }
 }

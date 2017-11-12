@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import PropTypes from 'prop-types';
+import createFormsContext from './createFormsContext';
 
 export default class FormsContext extends Component {
   static contextTypes = {
@@ -20,7 +21,7 @@ export default class FormsContext extends Component {
 
   constructor(props, context) {
     super(props, context);
-    this.forms = (context.forms || new Map());
+    this.forms = (context.forms || createFormsContext());
   }
 
   getChildContext() {

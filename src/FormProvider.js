@@ -7,7 +7,7 @@ export default class FormProvider extends Component {
   };
 
   static childContextTypes = {
-    form: PropTypes.object,
+    form: PropTypes.func,
   };
 
   static propTypes = {
@@ -23,6 +23,16 @@ export default class FormProvider extends Component {
     return {
       form: this.context.forms.get(this.props.id),
     };
+  }
+
+  componentDidMount() {
+    this.unsubscribe = this.context.forms.subscribe(
+      this.forceUpdate.bind(this),
+    );
+  }
+
+  componentWillUnmount() {
+    this.unsubscribe();
   }
 
   render() {

@@ -3,7 +3,6 @@
     ["airbnb", { "modules": false }]
   ],
   "plugins": [
-    "external-helpers",
     "transform-class-properties",
     "transform-export-extensions",
     "dev-expression"

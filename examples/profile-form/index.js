@@ -78,20 +78,16 @@ export default function Profile(props) {
       </Row>
       <div>
         <CommitButton
-          component={({ isCommitting, isDirty, isInvalid, commit, ...props }) => (
-            <Button {...props} disabled={isInvalid || isCommitting || !isDirty}>
+          component={({ commit, isCommitting, ...rest }) => (
+            <Button {...rest} onClick={commit}>
               {isCommitting ? 'Saving...' : 'Save'}
             </Button>
           )}
           type="submit"
         />
         <CancelButton
-          component={({ isCommitting, isDirty, isInvalid, cancel, ...props }) => (
-            <Button
-              {...props}
-              disabled={isInvalid || isCommitting || !isDirty}
-              onClick={cancel}
-            />
+          component={({ cancel, ...rest }) => (
+            <Button {...rest} onClick={cancel} />
           )}
           type="button"
         >

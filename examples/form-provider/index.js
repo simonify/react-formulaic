@@ -2,7 +2,7 @@ import React from 'react';
 import { Field, Form, FormsContext, FormProvider } from '../../src';
 import * as styles from './styles';
 
-const commit = () => {};
+const onCommit = () => {};
 
 export default function FormProviderExample() {
   return (
@@ -35,13 +35,13 @@ export default function FormProviderExample() {
           </div>
         </FormProvider>
         <Form
-          commit={commit}
           id="example"
           initialValues={{
             message: 'hello world',
           }}
+          onCommit={onCommit}
           style={styles.section}
-          preventChangeDuringCommit
+          preventChangeWhenCommitting
         >
           <div style={styles.label}>
             {'<Form id="example" />'}

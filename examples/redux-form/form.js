@@ -17,7 +17,7 @@ export default class ExampleForm extends Component {
     }
   };
 
-  commit = changes => new Promise(resolve => (
+  onCommit = changes => new Promise(resolve => (
     // fake network delay
     setTimeout(() => {
       resolve();
@@ -31,16 +31,16 @@ export default class ExampleForm extends Component {
     return (
       <div>
         <Form
-          commit={this.commit}
           initialValues={initialValues}
-          onChangeState={this.onChangeState}
+          onCommit={this.onCommit}
+          // onChangeState={this.onChangeState}
           style={{
             borderRadius: 8,
             marginBottom: 20,
             padding: 15,
             boxShadow: '0 8px 30px 0 rgba(0, 0, 0, 0.05)',
           }}
-          preventChangeDuringCommit
+          preventChangeWhenCommitting
           overwriteWhenInitialValuesChange
         >
           <div>Name:</div>

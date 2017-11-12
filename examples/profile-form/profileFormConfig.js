@@ -40,9 +40,9 @@ export default props => ({
     state: props.state || 'CA',
   },
 
-  normalizeFieldValue: {
+  getNormalizedValueForKey: {
     age: (value, prevValue) => (/^[0-9]+$/.test(value) ? value : prevValue),
   },
 
-  commit: () => new Promise(resolve => setTimeout(resolve, 1000)),
+  onCommit: () => new Promise(resolve => setTimeout(resolve, 1000)),
 });

@@ -2,18 +2,17 @@ import React from 'react';
 import { Field, Form } from '../../src';
 import * as styles from './styles';
 
-const commit = ({ message }) => {
+const onCommit = ({ message }) => {
   window.localStorage.setItem('message', message);
 };
 
 export default function LocalStorageForm() {
   return (
     <Form
-      commit={commit}
       initialValues={{
         message: window.localStorage.getItem('message') || '',
       }}
-      preventChangeDuringCommit={false}
+      onCommit={onCommit}
       style={{ padding: 25 }}
       commitOnChange
     >

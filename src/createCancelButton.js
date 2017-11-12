@@ -1,35 +1,36 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-export default function createCancelButton(formInstance) {
+export default function createCancelButton(getFormState) {
   function onClick(event) {
     event.preventDefault();
-    formInstance.cancel();
+    getFormState().onCancel();
   }
 
   function CancelButton({ component: Component, children, ...props }) {
-    const api = {
-      isCommitting: formInstance.state.isCommitting,
-      isDirty: formInstance.state.isDirty,
-      isInvalid: formInstance.state.isInvalid,
-      cancel: formInstance.cancel,
-    };
+    const formState = getFormState();
+    const disabled = (!formState.isDirty && !formState.isInvalid) || formState.isCommitting;
 
     if (Component === 'button') {
       return (
         <button
           {...props}
-          disabled={(!api.isDirty && !api.isInvalid) || api.isCommitting}
+          disabled={disabled}
           type="button"
           onClick={onClick}
         >
-          {typeof children === 'function' ? children(api) : children}
+          {typeof children === 'function' ? children({ ...formState, disabled }) : children}
         </button>
       );
     }
 
+    const spreadProps = typeof Component === 'function' ? ({
+      cancel: formState.cancel,
+      disabled,
+    }) : undefined;
+
     return (
-      <Component {...props} {...api}>
+      <Component {...props} {...spreadProps}>
         {children}
       </Component>
     );

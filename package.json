@@ -1,6 +1,6 @@
 {
   "name": "react-formulaic",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A set of React components for easy form management ⚛️",
   "main": "index.js",
   "author": "Simon Fletcher <simon@wakecodesleep.com>",

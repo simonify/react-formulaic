@@ -3,11 +3,11 @@ import PropTypes from 'prop-types';
 import { Field, Form } from '../../src';
 import * as styles from './styles';
 
-const commit = ({ message }) => {
+const onCommit = ({ message }) => {
   window.localStorage.setItem('message', message);
 };
 
-function LocalStorageForm({ form, onSubmit }) {
+function LocalStorageForm({ getFormState, onSubmit }) {
   return (
     <form
       style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial', padding: 25 }}
@@ -22,7 +22,8 @@ function LocalStorageForm({ form, onSubmit }) {
         style={styles.textarea}
         type="textarea"
         onChange={(event) => {
-          form.setValue('message', event.target.value).then(form.commit);
+          const state = getFormState();
+          state.setValue('message', event.target.value).then(state.commit);
         }}
       />
       <div style={{ fontSize: 17 }}>
@@ -35,20 +36,16 @@ function LocalStorageForm({ form, onSubmit }) {
 }
 
 LocalStorageForm.propTypes = {
-  form: PropTypes.shape({
-    commit: PropTypes.func.isRequired,
-    setValue: PropTypes.func.isRequired,
-  }).isRequired,
+  getFormState: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
 };
 
 export default () => (
   <Form
     component={LocalStorageForm}
-    commit={commit}
     initialValues={{
       message: window.localStorage.getItem('message') || '',
     }}
-    preventChangeDuringCommit={false}
+    onCommit={onCommit}
   />
 );
