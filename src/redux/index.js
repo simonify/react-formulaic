@@ -51,8 +51,10 @@ class ReduxForm extends Component {
     this.props.initializeForm(this.props.id, {
       commitError: null,
       dirtyFields: [],
+      focusedField: null,
       initialValues: { ...normalizedInitialValues },
       isCommitting: false,
+      touchedFields: [],
       values: { ...normalizedInitialValues },
       invalidFields,
     });
@@ -68,9 +70,8 @@ class ReduxForm extends Component {
     }
 
     const {
-      id,
+      resetCommitErrorOnChange,
       schema,
-      updateFormState,
       formState: {
         dirtyFields,
         initialValues,
@@ -93,7 +94,10 @@ class ReduxForm extends Component {
       newDirtyFields = [...dirtyFields, key];
     }
 
-    updateFormState(id, {
+    this.updateFormState({
+      ...(resetCommitErrorOnChange ? ({
+        commitError: null,
+      }) : null),
       dirtyFields: newDirtyFields,
       invalidFields: newInvalidFields,
       values: newValues,
@@ -104,7 +108,6 @@ class ReduxForm extends Component {
 
   onCancel = () => {
     const {
-      id,
       schema,
       formState: {
         initialValues,
@@ -113,7 +116,7 @@ class ReduxForm extends Component {
 
     const invalidFields = getInvalidFields(schema, initialValues, initialValues);
 
-    this.props.updateFormState(id, {
+    this.updateFormState({
       commitError: null,
       values: initialValues,
       dirtyFields: [],
@@ -121,69 +124,95 @@ class ReduxForm extends Component {
     });
   };
 
+  onBeginCommit = () => {
+    if (this.props.isCommitting) {
+      return Promise.reject(new Error('already committing'));
+    }
+
+    this.updateFormState({
+      commitError: null,
+      isCommitting: true,
+    });
+
+    return Promise.resolve();
+  }
+
   onCommit = () => {
     const {
-      id,
       onCommit,
-      updateFormState,
       formState: {
         dirtyFields,
         values,
       },
     } = this.props;
 
-    updateFormState(id, {
-      commitError: null,
-      isCommitting: true,
-    });
-
     const commitRes = onCommit(values, { dirtyFields });
-    const setIfSafe = (diff) => {
-      if (!this.unmounted) {
-        updateFormState(id, diff);
-        return Promise.resolve();
-      }
-
-      return Promise.reject(new Error('unmounted'));
-    };
-
-    const finalize = () => !setIfSafe({
+    const finalize = () => this.updateFormState({
       dirtyFields: [],
       isCommitting: false,
       initialValues: values,
       invalidFields: {},
     });
 
-    const reject = commitError => setIfSafe({
-      isCommitting: false,
-      commitError,
-    });
+    const reject = (commitError) => {
+      this.onCommitError(commitError);
+      return Promise.reject(commitError);
+    };
 
     if (typeof commitRes === 'object') {
       if (typeof commitRes.then === 'function') {
-        commitRes.then(finalize, reject);
-        return;
+        return commitRes.then(finalize, reject);
       }
 
       if (commitRes instanceof Error) {
-        reject(commitRes);
-        return;
+        return reject(commitRes);
       }
 
       console.warn('Invalid commit response:', commitRes);
 
-      reject(new Error(UNKNOWN_COMMIT_ERROR));
-
-      return;
+      return reject(new Error(UNKNOWN_COMMIT_ERROR));
     }
 
     if (commitRes === false) {
-      reject(new Error(UNKNOWN_COMMIT_ERROR));
-      return;
+      return reject(new Error(UNKNOWN_COMMIT_ERROR));
     }
 
-    finalize();
+    return finalize();
   };
+
+  onCommitError = commitError => (
+    this.updateFormState({
+      isCommitting: false,
+      invalidFields: commitError.fields ? commitError.fields : undefined,
+      commitError,
+    })
+  );
+
+  onBlurField = (field) => {
+    if (this.props.formState.focusedField === field) {
+      this.updateFormState({
+        focusedField: null,
+      });
+    }
+  }
+
+  onFocusField = focusedField => this.updateFormState({ focusedField });
+
+  onTouchField = field => (
+    !this.props.formState.touchedFields.includes(field) &&
+    this.updateFormState({
+      touchedFields: [
+        ...this.props.formState.touchedFields,
+        field,
+      ],
+    })
+  );
+
+  updateFormState(state) {
+    if (!this.unmounted) {
+      this.props.updateFormState(this.props.id, state);
+    }
+  }
 
   render() {
     const {
@@ -193,6 +222,7 @@ class ReduxForm extends Component {
       formState,
       normalizeInitialValues,
       overwriteWhenInitialValuesChange,
+      resetCommitErrorOnChange,
       updateFields,
       updateFormState,
       ...props
@@ -217,9 +247,14 @@ class ReduxForm extends Component {
         dirtyFields={dirtyFields}
         isCommitting={isCommitting}
         invalidFields={invalidFields}
+        onBeginCommit={this.onBeginCommit}
+        onBlurField={this.onBlurField}
         onCancel={this.onCancel}
         onChangeField={this.onChangeField}
         onCommit={this.onCommit}
+        onCommitError={this.onCommitError}
+        onFocusField={this.onFocusField}
+        onTouchField={this.onTouchField}
         values={values}
       />
     );

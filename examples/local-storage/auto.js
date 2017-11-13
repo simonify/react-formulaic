@@ -1,5 +1,5 @@
 import React from 'react';
-import { Field, StatefulForm } from '../../src';
+import { FieldsError, Field, StatefulForm } from '../../src';
 import * as styles from './styles';
 
 const onCommit = ({ message }) => {

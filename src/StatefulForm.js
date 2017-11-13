@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import shallowEquals from 'shallow-equals';
 import { UNKNOWN_COMMIT_ERROR } from './constants';
 import BaseForm, { getInvalidFields, formPropTypes, formDefaultProps } from './BaseForm';
 
@@ -37,11 +38,13 @@ export default class StatefulForm extends Component {
     );
 
     this.state = {
-      changeId: 0,
+      commitId: 0,
       commitError: null,
       dirtyFields: [],
+      focusedField: null,
       initialValues: { ...normalizedInitialValues },
       isCommitting: false,
+      touchedFields: [],
       values: { ...normalizedInitialValues },
       invalidFields,
     };
@@ -50,7 +53,7 @@ export default class StatefulForm extends Component {
   componentWillReceiveProps(props) {
     if (
       !props.overwriteWhenInitialValuesChange ||
-      this.props.initialValues === props.initialValues
+      shallowEquals(this.props.initialValues, props.initialValues)
     ) {
       return;
     }
@@ -98,11 +101,12 @@ export default class StatefulForm extends Component {
       }
 
       this.setState(({
+        commitError,
         dirtyFields,
         initialValues,
         values,
       }) => {
-        const { schema } = this.props;
+        const { resetCommitErrorOnChange, schema } = this.props;
         const newValues = {
           ...values,
           [key]: value,
@@ -119,6 +123,7 @@ export default class StatefulForm extends Component {
         }
 
         return {
+          commitError: resetCommitErrorOnChange ? null : commitError,
           dirtyFields: newDirtyFields,
           invalidFields: newInvalidFields,
           values: newValues,
@@ -140,64 +145,99 @@ export default class StatefulForm extends Component {
     });
   };
 
-  onCommit = () => (
-    new Promise(resolve => this.setState(({ changeId }) => ({
-      changeId: changeId + 1,
+  onBeginCommit = () => {
+    if (this.state.isCommitting) {
+      return Promise.reject(new Error('already committing'));
+    }
+
+    return new Promise(resolve => this.setState(({ commitId }) => ({
+      commitId: commitId + 1,
       commitError: null,
       isCommitting: true,
-    }), () => {
-      const { onCommit } = this.props;
-      const { changeId, dirtyFields, values } = this.state;
-      const commitRes = onCommit(values, { dirtyFields });
-      const setIfSafe = (diff, fn) => (
-        !this.unmounted &&
-        this.setState(({ changeId: currentChangeId }) => {
-          if (changeId === currentChangeId) {
-            return diff;
-          }
+    }), () => resolve(this.state.commitId)));
+  }
 
-          return undefined;
-        }, fn)
-      );
-
-      const finalize = () => !setIfSafe({
-        dirtyFields: [],
-        isCommitting: false,
-        initialValues: values,
-        invalidFields: {},
-      }, resolve);
-
-      const reject = commitError => setIfSafe({
-        isCommitting: false,
-        commitError,
-      });
-
-      if (typeof commitRes === 'object') {
-        if (typeof commitRes.then === 'function') {
-          commitRes.then(finalize, reject);
-          return;
+  onCommit = commitId => new Promise((resolve, reject) => {
+    const { onCommit } = this.props;
+    const { dirtyFields, values } = this.state;
+    const commitRes = onCommit(values, { dirtyFields });
+    const setIfSafe = (diff, fn) => (
+      !this.unmounted &&
+      this.setState(({ commitId: currentCommitId }) => {
+        if (commitId === currentCommitId) {
+          return diff;
         }
 
-        if (commitRes instanceof Error) {
-          reject(commitRes);
-          return;
-        }
+        return undefined;
+      }, fn)
+    );
 
-        console.warn('Invalid commit response:', commitRes);
+    const success = () => setIfSafe({
+      dirtyFields: [],
+      isCommitting: false,
+      initialValues: values,
+      invalidFields: {},
+    }, resolve);
 
-        reject(new Error(UNKNOWN_COMMIT_ERROR));
+    const fail = (commitError) => {
+      this.onCommitError(commitError);
+      reject(commitError);
+    };
 
+    if (typeof commitRes === 'object') {
+      if (typeof commitRes.then === 'function') {
+        commitRes.then(success, fail);
         return;
       }
 
-      if (commitRes === false) {
-        reject(new Error(UNKNOWN_COMMIT_ERROR));
+      if (commitRes instanceof Error) {
+        fail(commitRes);
         return;
       }
 
-      finalize();
-    }))
-  );
+      console.warn('Invalid commit response:', commitRes);
+
+      fail(new Error(UNKNOWN_COMMIT_ERROR));
+
+      return;
+    }
+
+    if (commitRes === false) {
+      fail(new Error(UNKNOWN_COMMIT_ERROR));
+      return;
+    }
+
+    success();
+  });
+
+  onCommitError = commitError => this.setState({
+    ...(commitError.fields ? { invalidFields: commitError.fields } : null),
+    isCommitting: false,
+    commitError,
+  });
+
+  onBlurField = field => this.setState(({ focusedField }) => {
+    if (focusedField === field) {
+      return { focusedField: null };
+    }
+
+    return undefined;
+  });
+
+  onFocusField = focusedField => this.setState({ focusedField });
+
+  onTouchField = field => this.setState(({ touchedFields }) => {
+    if (touchedFields.includes(field)) {
+      return undefined;
+    }
+
+    return {
+      touchedFields: [
+        ...touchedFields,
+        field,
+      ],
+    };
+  });
 
   render() {
     const {
@@ -211,7 +251,9 @@ export default class StatefulForm extends Component {
     const {
       initialValues,
       normalizeInitialValues,
+      onChangeState,
       overwriteWhenInitialValuesChange,
+      resetCommitErrorOnChange,
       ...props
     } = this.props;
 
@@ -222,9 +264,14 @@ export default class StatefulForm extends Component {
         dirtyFields={dirtyFields}
         isCommitting={isCommitting}
         invalidFields={invalidFields}
+        onBeginCommit={this.onBeginCommit}
+        onBlurField={this.onBlurField}
         onCancel={this.onCancel}
         onChangeField={this.onChangeField}
         onCommit={this.onCommit}
+        onCommitError={this.onCommitError}
+        onFocusField={this.onFocusField}
+        onTouchField={this.onTouchField}
         values={values}
       />
     );

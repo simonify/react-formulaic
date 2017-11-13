@@ -24,6 +24,13 @@ export default function createField(getFormState) {
         key={field}
         disabled={disabled}
         onChange={event => formState.setValue(field, event.target.value)}
+        onFocus={() => {
+          formState.onFocusField(field);
+        }}
+        onBlur={() => {
+          formState.onBlurField(field);
+          formState.onTouchField(field);
+        }}
         value={formState.getValueForKey(field) || ''}
         {...props}
         {...spreadProps}

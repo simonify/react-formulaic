@@ -60,3 +60,22 @@ export default function reducer(state = {}, action) {
       return state;
   }
 }
+
+reducer.plugin = reducerActionHandlers => (state, action) => (
+  Object.entries(reducerActionHandlers).reduce((newState, [id, formReducer]) => {
+    if (!state[id]) {
+      return newState;
+    }
+
+    const newFormState = formReducer(newState[id], action);
+
+    if (newState[id] !== newFormState) {
+      return {
+        ...newState,
+        [id]: newFormState,
+      };
+    }
+
+    return newState;
+  }, reducer(state, action))
+);

@@ -35,7 +35,8 @@
   "dependencies": {
     "create-dispatcher": "^1.4.0",
     "hoist-non-react-statics": "^2.3.1",
-    "prop-types": "^15.6.0"
+    "prop-types": "^15.6.0",
+    "shallow-equals": "^1.0.0"
   },
   "devDependencies": {
     "@storybook/addon-actions": "^3.2.15",

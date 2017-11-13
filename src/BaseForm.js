@@ -59,11 +59,13 @@ export const formPropTypes = {
     PropTypes.func,
     PropTypes.object,
   ]),
+  resetCommitErrorOnChange: PropTypes.bool,
   normalizeInitialValues: PropTypes.func,
 };
 
 export const formDefaultProps = {
   normalizeInitialValues: n => n,
+  resetCommitErrorOnChange: true,
   schema: {},
 };
 
@@ -78,9 +80,14 @@ export default class BaseForm extends Component {
   };
 
   static propTypes = {
+    onBeginCommit: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,
     onChangeField: PropTypes.func.isRequired,
     onCommit: PropTypes.func.isRequired,
+    onCommitError: PropTypes.func.isRequired,
+    onBlurField: PropTypes.func.isRequired,
+    onFocusField: PropTypes.func.isRequired,
+    onTouchField: PropTypes.func.isRequired,
     schema: PropTypes.object.isRequired,
     commitError: PropTypes.any,
     commitOnChange: PropTypes.bool,
@@ -98,6 +105,7 @@ export default class BaseForm extends Component {
     isValidating: PropTypes.bool,
     id: PropTypes.string,
     invalidFields: PropTypes.object,
+    onBeforeCommit: PropTypes.func,
     preventCancelWhenClean: PropTypes.bool,
     preventChangeWhenCommitting: PropTypes.bool,
     preventChangeWhenInvalid: PropTypes.bool,
@@ -119,6 +127,7 @@ export default class BaseForm extends Component {
     isValidating: false,
     id: null,
     invalidFields: {},
+    onBeforeCommit: null,
     preventCancelWhenClean: false,
     preventChangeWhenCommitting: false,
     preventChangeWhenInvalid: false,
@@ -175,16 +184,34 @@ export default class BaseForm extends Component {
     this.props.onCancel();
   }
 
-  onCommit = () => (
-    (!this.props.preventCommitWhenCommitting || !this.props.isCommitting) &&
-    (!this.props.preventCommitWhenInvalid && !this.isInvalid()) &&
-    (!this.props.preventCommitWhenClean && this.isDirty()) &&
-    this.props.onCommit()
-  );
+  onCommit = () => {
+    if (
+      (this.props.preventCommitWhenCommitting && this.props.isCommitting) ||
+      (this.props.preventCommitWhenInvalid && this.isInvalid()) ||
+      (this.props.preventCommitWhenClean && !this.isDirty())
+    ) {
+      return Promise.reject(new Error('invalid state to commit'));
+    }
+
+    return this.props.onBeginCommit().then((res) => {
+      if (this.props.onBeforeCommit) {
+        const beforeCommitRes = this.props.onBeforeCommit(this.getState);
+
+        if (beforeCommitRes != null && typeof beforeCommitRes.then === 'function') {
+          return beforeCommitRes.then(
+            () => res,
+            error => this.props.onCommitError(error, error.fields),
+          );
+        }
+      }
+
+      return Promise.resolve(res);
+    }).then(this.props.onCommit).then(null, () => {});
+  };
 
   onSubmit = (event) => {
     event.preventDefault();
-    this.props.onCommit();
+    this.onCommit();
   };
 
   onChangeField = (key, baseValue, { skipValidation = false } = {}) => {
@@ -243,14 +270,17 @@ export default class BaseForm extends Component {
     isDirty: this.isDirty(),
     isInvalid: this.isInvalid(),
     invalidFields: this.props.invalidFields,
+    onBlurField: this.props.onBlurField,
+    onFocusField: this.props.onFocusField,
+    onTouchField: this.props.onTouchField,
     preventChangeWhenCommitting: this.props.preventChangeWhenCommitting,
     setValue: this.onChangeField,
     subscribe: this.dispatcher.subscribe,
     values: this.props.values,
   });
 
-  isDirty = () => this.props.dirtyFields.length > 0;
-  isInvalid = () => Object.keys(this.props.invalidFields).length > 0;
+  isDirty = (props = this.props) => props.dirtyFields.length > 0;
+  isInvalid = (props = this.props) => Object.keys(props.invalidFields).length > 0;
 
   render() {
     const {
@@ -258,13 +288,19 @@ export default class BaseForm extends Component {
       getNormalizedValueForKey: omit,
       commitError,
       commitOnChange,
-      onCommit,
       dirtyFields,
       dirtyValues,
+      invalidFields,
       isCommitting,
       isValidating,
-      invalidFields,
+      onBeforeCommit,
+      onBeginCommit,
+      onBlurField,
       onChangeField,
+      onCommit,
+      onCommitError,
+      onFocusField,
+      onTouchField,
       preventCancelWhenClean,
       preventChangeWhenCommitting,
       preventChangeWhenInvalid,

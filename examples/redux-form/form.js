@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { CancelButton, CommitButton, Field, FormState } from '../../src';
+import { CancelButton, CommitButton, Field, FieldErrors, FieldsError, FormState } from '../../src';
 
 export default class ExampleForm extends Component {
   static propTypes = {
@@ -19,26 +19,27 @@ export default class ExampleForm extends Component {
   };
 
   onChangeState = (prevState, state) => {
-    // keep a global copy of the form's commiting state
-    if (prevState.isCommitting !== state.isCommitting) {
+    if (this.props.setIsCommitting && prevState.isCommitting !== state.isCommitting) {
       this.props.setIsCommitting(state.isCommitting);
     }
   };
 
-  onCommit = changes => new Promise((resolve, reject) => (
-    // fake network delay
-    setTimeout(() => {
-      if (changes.name.toLowerCase() === 'trump') {
-        reject(new Error('Name banned.'));
-      } else {
-        resolve();
-      }
+  onCommit = changes => new Promise((resolve, reject) => {
+    if (changes.name.toLowerCase() === 'trump') {
+      reject(new FieldsError('Name banned.', {
+        name: ['That name is banned.'],
+      }));
+      return;
+    }
 
+    // fake network delay for success
+    setTimeout(() => {
+      resolve();
       if (this.props.updateFormFields) {
         this.props.updateFormFields(changes);
       }
-    }, 2500)
-  ));
+    }, 1500);
+  });
 
   render() {
     const { component: FormComponent, id, initialValues, storeState } = this.props;
@@ -61,6 +62,7 @@ export default class ExampleForm extends Component {
         >
           <div>Name (enter "trump" to simulate error):</div>
           <Field field="name" />{' '}
+          <FieldErrors field="name" />
           <CommitButton>
             {({ isCommitting }) => (isCommitting ? 'Saving...' : 'Save changes')}
           </CommitButton>{' '}
@@ -78,7 +80,7 @@ export default class ExampleForm extends Component {
                   boxShadow: '0 3px 8px #ffefef',
                 }}
               >
-                {commitError.message}
+                Commit error: {commitError.message}
               </div>
             ) : null)}
           </FormState>
